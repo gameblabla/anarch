@@ -289,12 +289,31 @@ int8_t SFG_keyPressed(uint8_t key)
   
 int running = 1;
 
+void Cleanup()
+{
+#ifdef SDL_AUDIO
+	SDL_PauseAudio(1);
+	SDL_CloseAudio();
+	SDL_Quit();
+#endif
+
+    if (screenBuffer) free(screenBuffer);
+
+/*  Deinit everything */
+    OSScreenShutdown();
+    WHBProcShutdown();
+    
+    ProcUIShutdown();
+}
+
+
 int AppRunning() {
-   if (OSIsMainCore()) {
+	int app = 1;
+	if (OSIsMainCore()) {
 		switch (ProcUIProcessMessages(true)) {
                 case PROCUI_STATUS_EXITING:
                     // Being closed, prepare to exit
-                    running = 0;
+                    app = 0;
                     break;
                 case PROCUI_STATUS_RELEASE_FOREGROUND:
                     // Free up MEM1 to next foreground app, deinit screen, etc.
@@ -302,15 +321,16 @@ int AppRunning() {
                     break;
                 case PROCUI_STATUS_IN_FOREGROUND:
                     // Executed while app is in foreground
-                    running = 1;
+                    app = 1;
                     break;
                 case PROCUI_STATUS_IN_BACKGROUND:
                     OSSleepTicks(OSMillisecondsToTicks(20));
                     break;
             }
 	}
+	if (running == 0) app = 0;
 
-	return running;
+	return app;
 }
 
 void mainLoopIteration()
@@ -390,6 +410,7 @@ void handleSignal(int signal)
   running = 0;
 }
 
+
 int main(int argc, char *argv[])
 {
     OSDynLoad_Module mod;
@@ -443,25 +464,12 @@ int main(int argc, char *argv[])
 	running = 1;
 	start = OSGetSystemTime();
 
-  while (AppRunning())
-    mainLoopIteration();
-
-#ifdef SDL_AUDIO
-	SDL_PauseAudio(1);
-	SDL_CloseAudio();
-	SDL_Quit();
-#endif
-
-
-/*  It's vital to free everything - under certain circumstances, your memory
-    allocations can stay allocated even after you quit. */
-    if (screenBuffer) free(screenBuffer);
-
-/*  Deinit everything */
-    OSScreenShutdown();
-    WHBProcShutdown();
-    
-    ProcUIShutdown();
+	while (AppRunning())
+	{
+		mainLoopIteration();
+	}
+	
+	Cleanup();
 
 	return 0;
 }
