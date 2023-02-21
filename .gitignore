@@ -3,3 +3,8 @@ anarch.sav
 anarch.opk
 *.opk
 *.o
+*.rpx
+*.elf
+*.wuhb
+build/
+*.out

@@ -36,7 +36,19 @@
 // #define GAME_LQ
 
 #ifndef __EMSCRIPTEN__
-  #ifndef GAME_LQ
+
+  #if defined(__WIIU__)
+	#define SFG_FPS 30
+    #define SFG_SCREEN_RESOLUTION_X 1920
+    #define SFG_SCREEN_RESOLUTION_Y 1080
+    #define SFG_RAYCASTING_SUBSAMPLE 2
+    #define SFG_RESOLUTION_SCALEDOWN 2
+    #define SFG_DIMINISH_SPRITES 0
+    #define SFG_DITHERED_SHADOW 0
+    #define SFG_BACKGROUND_BLUR 0
+    #define SFG_RAYCASTING_MAX_STEPS 18
+    #define SFG_RAYCASTING_MAX_HITS 8
+  #elif !defined(GAME_LQ)
     // higher quality
     #define SFG_FPS 60
     #define SFG_LOG(str) puts(str);
@@ -106,12 +118,15 @@ uint8_t sdlMouseButtonState = 0;
 int8_t sdlMouseWheelState = 0;
 SDL_GameController *sdlController;
 
+#if defined(ARGB_BUFFER) || defined(RGBX_BUFFER)
+#warning "YES"
+uint32_t sdlScreen[SFG_SCREEN_RESOLUTION_X * SFG_SCREEN_RESOLUTION_Y]; // ARGB8888
+#else
 uint16_t sdlScreen[SFG_SCREEN_RESOLUTION_X * SFG_SCREEN_RESOLUTION_Y]; // RGB565
-
+#endif
 SDL_Window *window;
 SDL_Renderer *renderer;
 SDL_Texture *texture;
-SDL_Surface *screenSurface;
 
 // now implement the Anarch API functions (SFG_*)
 
@@ -186,6 +201,8 @@ int8_t mouseMoved = 0; /* Whether the mouse has moved since program started,
 void SFG_getMouseOffset(int16_t *x, int16_t *y)
 {
 #ifndef __EMSCRIPTEN__
+
+#if !defined(__WIIU__)
   if (mouseMoved)
   {
     int mX, mY;
@@ -198,7 +215,7 @@ void SFG_getMouseOffset(int16_t *x, int16_t *y)
     SDL_WarpMouseInWindow(window,
       SFG_SCREEN_RESOLUTION_X / 2, SFG_SCREEN_RESOLUTION_Y / 2);
   }
-
+#endif
   if (sdlController != NULL)
   {
     *x +=
@@ -235,11 +252,11 @@ int8_t SFG_keyPressed(uint8_t key)
     case SFG_KEY_DOWN: 
       return k(DOWN) || k(S) || k(KP_5) || k(KP_2) || b(DPAD_DOWN); break;
     case SFG_KEY_LEFT: return k(LEFT) || k(Q) || k(KP_4) || b(DPAD_LEFT); break;
-    case SFG_KEY_A: return k(J) || k(RETURN) || k(LCTRL) || k(RCTRL) || b(X) ||
+    case SFG_KEY_A: return k(J) || k(RETURN) || k(LCTRL) || k(RCTRL) || b(A) ||
       b(RIGHTSTICK) || (sdlMouseButtonState & SDL_BUTTON_LMASK); break;
     case SFG_KEY_B: return k(K) || k(LSHIFT) || b(B); break;
-    case SFG_KEY_C: return k(L) || b(Y); break;
-    case SFG_KEY_JUMP: return k(SPACE) || b(A); break;
+    case SFG_KEY_C: return k(L) || b(X); break;
+    case SFG_KEY_JUMP: return k(SPACE) || b(Y); break;
     case SFG_KEY_STRAFE_LEFT: return k(A) || k(KP_7); break;
     case SFG_KEY_STRAFE_RIGHT: return k(D) || k(KP_9); break;
     case SFG_KEY_MAP: return k(TAB) || b(BACK); break;
@@ -251,7 +268,6 @@ int8_t SFG_keyPressed(uint8_t key)
     case SFG_KEY_NEXT_WEAPON:
       if (k(P) || k(X) || b(RIGHTSHOULDER))
         return 1;
-
 #define checkMouse(cmp)\
   if (sdlMouseWheelState cmp 0) { sdlMouseWheelState = 0; return 1; }
 
@@ -267,7 +283,6 @@ int8_t SFG_keyPressed(uint8_t key)
       checkMouse(<)
 
 #undef checkMouse
-      
       return 0;
       break;
 
@@ -312,9 +327,17 @@ void mainLoopIteration()
     running = 0;
 
   SDL_UpdateTexture(texture,NULL,sdlScreen,
-    SFG_SCREEN_RESOLUTION_X * sizeof(uint16_t));
+    SFG_SCREEN_RESOLUTION_X *
+#if defined(ARGB_BUFFER) || defined(RGBX_BUFFER)
+	sizeof(uint32_t)
+#else
+    sizeof(uint16_t)
+#endif
+    );
 
+#if !defined(__WIIU__)
   SDL_RenderClear(renderer);
+#endif
   SDL_RenderCopy(renderer,texture,NULL,NULL);
   SDL_RenderPresent(renderer);
 }
@@ -401,6 +424,7 @@ int main(int argc, char *argv[])
   for (uint8_t i = 0; i < SFG_KEY_COUNT; ++i)
     webKeyboardState[i] = 0;
 
+#if !defined(__WIIU__)
   for (uint8_t i = 1; i < argc; ++i)
   {
     if (argv[i][0] == '-' && argv[i][1] == 'h' && argv[i][2] == 0)
@@ -438,6 +462,7 @@ int main(int argc, char *argv[])
 
     return 0;
   }
+#endif
 
   SFG_init();
 
@@ -452,11 +477,20 @@ int main(int argc, char *argv[])
 
   renderer = SDL_CreateRenderer(window,-1,0);
 
+#if defined(ARGB_BUFFER)
+  texture =
+    SDL_CreateTexture(renderer,SDL_PIXELFORMAT_ARGB8888,SDL_TEXTUREACCESS_STATIC,
+    SFG_SCREEN_RESOLUTION_X,SFG_SCREEN_RESOLUTION_Y);
+#elif defined(RGBX_BUFFER)
+  #warning "RGBX"
+  texture =
+    SDL_CreateTexture(renderer,SDL_PIXELFORMAT_RGBX8888,SDL_TEXTUREACCESS_STATIC,
+    SFG_SCREEN_RESOLUTION_X,SFG_SCREEN_RESOLUTION_Y);
+#else
   texture =
     SDL_CreateTexture(renderer,SDL_PIXELFORMAT_RGB565,SDL_TEXTUREACCESS_STATIC,
     SFG_SCREEN_RESOLUTION_X,SFG_SCREEN_RESOLUTION_Y);
-
-  screenSurface = SDL_GetWindowSurface(window);
+#endif
 
 #if SFG_FULLSCREEN
   argForceFullscreen = 1;
@@ -524,7 +558,6 @@ int main(int argc, char *argv[])
   SDL_DestroyTexture(texture);
   SDL_DestroyRenderer(renderer); 
   SDL_DestroyWindow(window); 
-
   puts("SDL: ending");
 
   return 0;
