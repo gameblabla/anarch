@@ -36,6 +36,13 @@
 #include <whb/log_udp.h>
 #include <whb/log.h>
 #include <whb/proc.h>
+
+#include <coreinit/core.h>
+#include <coreinit/dynload.h>
+#include <coreinit/foreground.h>
+#include <proc_ui/procui.h>
+#include <whb/proc.h>
+
 #if defined(_WIN32) || defined(WIN32) || defined(__WIN32__) || defined(__NT__) || defined(__APPLE__)
   #define SFG_OS_IS_MALWARE 1
 #endif
@@ -385,9 +392,14 @@ void handleSignal(int signal)
 
 int main(int argc, char *argv[])
 {
-    WHBLogCafeInit();
-    WHBLogUdpInit();
-    WHBProcInit();
+    OSDynLoad_Module mod;
+    int aroma = OSDynLoad_Acquire("homebrew_kernel", &mod) == OS_DYNLOAD_OK;
+    if (aroma) {
+        OSDynLoad_Release(mod);
+        ProcUIInit(&OSSavesDone_ReadyToRelease);
+        OSEnableHomeButtonMenu(true);
+    } else
+        return 0;
 
 	SFG_init();
 
@@ -448,13 +460,8 @@ int main(int argc, char *argv[])
 /*  Deinit everything */
     OSScreenShutdown();
     WHBProcShutdown();
-
-    WHBLogPrint("Quitting.");
-    WHBLogCafeDeinit();
-    WHBLogUdpDeinit();
-
-	OSScreenShutdown();
-	WHBProcShutdown();
+    
+    ProcUIShutdown();
 
 	return 0;
 }
