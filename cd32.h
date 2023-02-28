@@ -14,6 +14,9 @@
 #ifndef CD32_H
 #define CD32_H
 
+#define WIDTH 320
+#define HEIGHT 200
+
 #include <stdio.h>
 #include <stdlib.h>
 #include <stdint.h>
@@ -72,22 +75,23 @@ struct AudioPCM {
 };
 
 extern uint8_t *gfxbuf;
-
 extern uint16_t vwidth;
 extern uint16_t vheight;
+extern struct RastPort temprp2;
 
 /*
  * Creates the display that you are going to draw the graphics to.
  * Needed for game_setpalette and Video_UpdateScreen
 */
 
-extern int Init_Video();
+extern int Init_Video(uint16_t w, uint16_t h, uint16_t internal_width, uint16_t internal_height);
 
 /*
  * Creates the display that you are going to draw the graphics to.
 */
 
 extern void SetPalette_Video(const uint8_t *palette);
+extern void SetPalette_Video_1024(char* file);
 
 /*
  * Flips the screen.
@@ -95,7 +99,9 @@ extern void SetPalette_Video(const uint8_t *palette);
  * Note that for CDDA music looping, this is also required to be called in a looping function.
  * 
 */
-extern void UpdateScreen_Video();
+//extern void UpdateScreen_Video();
+#define UpdateScreen_Video() WriteChunkyPixels(&temprp2,0,0,WIDTH-1,((HEIGHT)-1),gfxbuf,vwidth);
+#define UpdateScreen_Video_partial(x,y,w,h) WriteChunkyPixels(&temprp2,x,y,x+w,y+h,gfxbuf,w);
 
 /*
  * Call this to use the PCM related functions.
@@ -162,6 +168,8 @@ extern BOOL Play_CD_Track(LONG trackNum, uint8_t loop);
  * If nothing is being played then nothing will happen.
 */
 extern void Stop_CDDA();
+
+extern void Play_CDDA_again();
 
 
 #endif

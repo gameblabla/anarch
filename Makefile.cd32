@@ -1,12 +1,18 @@
 CC = m68k-amigaos-gcc -m68020
 EXE = game
 
-CFLAGS  = -Ofast -fipa-pta -fno-plt -fno-PIC -fno-stack-protector -flto
+#  -mrtd Can't use :/
+# -fipa-pta -fno-plt -fno-PIC -malign-int -mxgot 
+CFLAGS  = -Os -fomit-frame-pointer -mcpu=68020 -mtune=68020 -flto -I. -Isrc -mxgot -fipa-pta
+# very small caches, avoid optimization options making the binary much bigger
+CFLAGS += -finline-limit=42 -ffast-math
+CFLAGS += -fno-common -fno-stack-protector -fno-guess-branch-probability -fno-caller-saves -fno-tree-loop-if-convert -fno-regmove
+
 STRIP = $(HOST)strip
 
-SRC = cd32.c main.c
+SRC = cd32.c src/main.c
 
-LDFLAGS = -lc -lgcc -lm -Wl,--as-needed -Wl,--gc-sections -s -flto
+LDFLAGS = -lc -lgcc -lamiga -lm -Wl,--as-needed -Wl,--gc-sections -s -flto
 
 OBJ = $(SRC:.c=.o)
 
